@@ -27,11 +27,20 @@ public class Category {
     private List<Item> items = new ArrayList<>();
 
     // JPA에서 자기 자신을 참조하는 양방향 연관관계 (자기 자신과 부모-자식 관계를 맺는 구조)
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private Category parent;
 
     @OneToMany(mappedBy = "parent")
     private List<Category> child = new ArrayList<>();
+
+    public void addChildCategory(Category child) {
+        this.child.add(child);
+        child.setParent(this);
+    }
+
+    public void setParent(Category parent) {
+        this.parent = parent;
+    }
 
 }
