@@ -161,6 +161,8 @@ public void changeTeam(Team team) {
 편의 메소드 위치는 연관관계의 주인 이거나 비즈니스 로직상 책임을 지는 쪽에 두는 것이 좋은 방식
 
 ## 회원 도메인 개발
+#### 트랜잭션
+- 트랜잭션은 하나의 작업 단위로, 여러 작업을 하나처럼 묶어 모두 성공하거나, 모두 실패하게 만드는 기능
 #### Entity Manager (엔티티 매니저)
 - JPA에서 데이터베이스와 상호작용하는 핵심 객체
 > JPA는 인터페이스만 제공하고, 실제로는 하이버네이트 같은 구현체가 내부적으로 EntityManager를 동작시켜줌.
@@ -218,7 +220,7 @@ public void changeTeam(Team team) {
 2. 변경 감지(Dirty Checking) : 객체의 필드 값이 바뀌면, JPA가 이를 감지해서 자동으로 update 쿼리를 만들어 줌
 3. 1차 캐시 역할 : 같은 객체를 다시 조회하면 DB에 가는 것이 아니라, 영속성 컨텍스트에 있는 객체를 찾아서 반환
    (동일한 트랜잭션 내에 있다면, 동일한 객체가 반환된다)
-   ```java
+  ```java
     @Transactional
     public void example() {
         Member m1 = em.find(Member.class, 1L); // 첫 번째 조회 → DB에 다녀옴 + 영속성 컨텍스트에 저장
@@ -227,3 +229,56 @@ public void changeTeam(Team team) {
        System.out.println(m1 == m2); // true
     }
   ```
+
+#### @Transactional
+트랜잭션 처리를 자동으로 관리해주는 기능. 작업 도중 오류가 발생하면 자동으로 롤백하고, 성공 시 커밋
+
+여러 DB 작업이 하나의 작업처럼 처리되어야 할 때 사용
+- 예: 게시글 작성 시, 게시글 테이블과 첨부파일 테이블에 동시에 insert 해야 하는 경우
+- 둘 중 하나라도 실패하면 전체를 롤백해야 함
+
+읽기 전용이면 readOnly = true 설정 → 성능 향상 가능
+> - 트랜잭션이 필요한 메서드는 Service 계층에 작성하는 것이 일반적 (비즈니스 로직 중심)
+> - 테스트에서도 @Transactional 사용 가능 → 테스트 종료 시 자동 롤백
+
+#### [참고] @Builder
+- Lombok에서 제공하는 애노테이션으로, 객체 생성 시 가독성과 유연성을 높여주는 빌더 패턴을 자동으로 생성
+>  테스트 코드에서 사용하는 이유
+> 1. 객체 생성 시 매개변수 순서를 헷갈릴 필요가 없음
+> 2. 원하는 필드만 선택적으로 설정 가능
+> 3. 테스트 코드 유지보수 용이
+> ```java
+> @Getter
+> @Builder
+> public class User {
+>     private String name;
+>     private int age;
+> }
+> 
+>----------------------------
+> 
+> User user = User.builder()
+>       .name("홍길동")
+>       .age(30)
+>       .build();
+>```
+
+#### [참고] assertThrows (jUnit5)
+- 예외가 발생하는지 검증하는 JUnit5의 메서드
+  
+1. 람다식으로 예외 발생 지점을 명확히 지정 가능
+2. 예외 메시지나 예외 객체 내부 상태까지도 검증 가능
+```java
+assertThrows(예외타입.class, () -> 예외가 발생할 코드를 람다로 작성);
+```
+
+#### [참고] assertThat (AssertJ)
+- 객체나 값이 예상과 일치하는지 검증할 수 있는 메서드
+- JUnit의 `assertEquals`, `assertTrue`보다 더 직관적이고 다양한 조건 비교가 가능함
+- 메서드 체이닝 방식으로 다양한 조건을 표현할 수 있어 복잡한 테스트에서도 명확한 의도를 전달할 수 있음
+
+```java
+assertThat(actual).isEqualTo(expected);        // 값 일치
+assertThat(list).hasSize(3);                   // 리스트 크기 검증
+assertThat(string).startsWith("prefix");       // 문자열 시작 검사
+assertThat(object).isInstanceOf(User.class);   // 객체 타입 확인
