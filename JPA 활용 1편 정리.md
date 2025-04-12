@@ -160,3 +160,70 @@ public void changeTeam(Team team) {
 ```
 편의 메소드 위치는 연관관계의 주인 이거나 비즈니스 로직상 책임을 지는 쪽에 두는 것이 좋은 방식
 
+## 회원 도메인 개발
+#### Entity Manager (엔티티 매니저)
+- JPA에서 데이터베이스와 상호작용하는 핵심 객체
+> JPA는 인터페이스만 제공하고, 실제로는 하이버네이트 같은 구현체가 내부적으로 EntityManager를 동작시켜줌.
+즉, 우리가 em.persist() 이런 걸 쓰면, JPA가 하이버네이트를 통해 SQL로 바꿔서 DB에 날려주는 구조
+
+- 엔티티 매니저가 하는 일
+
+  | 메서드            | 설명                                                  |
+  |-------------------|-----------------------------------------------------|
+  | `persist()`       | 엔티티를 영속성 컨텍스트에 저장하고 DB에 INSERT 함                    |
+  | `find()`          | PK로 엔티티를 조회함                                        |
+  | `remove()`        | 엔티티를 삭제함 (DELETE)                                   |
+  | `merge()`         | 분리(detached) 상태의 엔티티를 영속 상태로 변경                     |
+  | `createQuery()`   | JPQL을 사용한 쿼리를 생성하고 실행함 (Ex. 단건 조회가 아닌 전체 조회가 필요할 때) |
+
+- JPA를 직접 사용하는 레포지토리 클래스에서 사용함.
+  ```java
+  @Repository
+  public class MemberRepository {
+  
+      //스프링이 현재 트랜잭션 범위에서 관리되는 EntityManager를 주입
+      @PersistenceContext
+      private EntityManager em;
+  
+      public void save(Member member) {
+          em.persist(member);
+      }
+  
+      public Member find(Long id) {
+          return em.find(Member.class, id);
+      }
+  
+  }
+  ```
+
+#### @PersistenceContext
+- JPA에서 엔티티 매니저(EntityManager)를 주입받을 때 사용하는 어노테이션
+- Spring 환경에서 JPA를 사용할 때, 영속성 컨텍스트를 자동으로 연결해주는 역할
+> [참고] @Autowired를 사용하여 주입 받는 것과 차이가 있는가?
+> @Autowired EntityManager도 가능하긴 한데, JPA에서는 트랜잭션 연계 등 더 정교하게 관리되기 때문에 @PersistenceContext 사용
+
+#### 트랜잭션 범위에서의 EntityManager 관리
+
+- 스프링은 트랜잭션마다 새로운 EntityManager를 생성하고, 해당 트랜잭션 내에서만 사용하는 EntityManager를 자동으로 주입해준다.  
+- 동일 트랜잭션 내에서는 동일한 영속성 컨텍스트가 보장되며, 이를 통해 1차 캐시, 변경 감지 등의 기능이 일관되게 동작한다.
+#### [복습] 영속성 컨텍스트
+- 엔티티를 저장해두는 JPA 내부의 일종의 메모리(1차 캐시)
+- JPA는 이 엔티티 저장소를 통해 객체들을 관리
+
+> 1. JPA는 엔티티 객체를 데이터베이스에 바로 저장하지 않고 영속성 컨텍스트에 먼저 저장해 둠.
+> 2. 트랜잭션이 커밋되는 순간에, 영속성 컨텍스트에 저장된 변경사항들을 모아서 한번에 DB에 반영
+
+- 위 과정을 거치는 이유
+1. 성능 최적화 : 쿼리를 즉시 보내지 않고 모아서 보냄
+2. 변경 감지(Dirty Checking) : 객체의 필드 값이 바뀌면, JPA가 이를 감지해서 자동으로 update 쿼리를 만들어 줌
+3. 1차 캐시 역할 : 같은 객체를 다시 조회하면 DB에 가는 것이 아니라, 영속성 컨텍스트에 있는 객체를 찾아서 반환
+   (동일한 트랜잭션 내에 있다면, 동일한 객체가 반환된다)
+   ```java
+    @Transactional
+    public void example() {
+        Member m1 = em.find(Member.class, 1L); // 첫 번째 조회 → DB에 다녀옴 + 영속성 컨텍스트에 저장
+        Member m2 = em.find(Member.class, 1L); // 두 번째 조회 → DB에 안 감 캐시에서 바로 가져옴
+
+       System.out.println(m1 == m2); // true
+    }
+  ```
