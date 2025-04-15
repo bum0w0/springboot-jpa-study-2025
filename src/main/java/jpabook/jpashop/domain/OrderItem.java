@@ -2,12 +2,14 @@ package jpabook.jpashop.domain;
 
 import jakarta.persistence.*;
 import jpabook.jpashop.domain.item.Item;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
 @Entity
 @Builder
+@AllArgsConstructor
 @Getter
 @Setter
 public class OrderItem {

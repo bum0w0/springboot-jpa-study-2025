@@ -1,6 +1,7 @@
 package jpabook.jpashop.domain;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -11,8 +12,9 @@ import java.util.List;
 
 @Entity
 @Table(name = "orders")
-@Builder
 @Getter @Setter
+@Builder
+@AllArgsConstructor
 public class Order {
 
     @Id
@@ -23,6 +25,7 @@ public class Order {
     @JoinColumn(name = "member_id") // member_id 라는 이름을 가진 FK
     private Member member;
 
+    @Builder.Default
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL) // 연관된 엔티티 간의 영속성 전이 (order만 persist해도 orderItems도 함께 저장)
     private List<OrderItem> orderItems = new ArrayList<>();
 
