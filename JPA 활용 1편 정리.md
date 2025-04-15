@@ -129,10 +129,15 @@ teamA.getMembers().add(member); // 연관관계 설정 X
 > - JPA의 구현체 중 하나로, JPA의 표준 인터페이스를 실제로 동작하게 만드는 라이브러리.
 > - JPA를 사용하면 하이버네이트가 내부에서 작동하여 SQL 생성, DB 연결, 트랜잭션 처리 등을 해줌.
 
-#### 영속성 전이
+#### 영속성 전이 (cascade)
 - 한 엔티티의 생명주기 변화(저장, 삭제 등)가 연관된 다른 엔티티에도 전파되는 것
 - 부모 엔티티를 persist, remove 등 할 때 연관된 자식 엔티티도 자동으로 함께 처리되는 기능
 - 부모를 저장하거나 삭제할 때 자식을 항상 같이 처리해야 할 때 사용함.
+
+#### 실무에서 cascade 옵션 설정 기준
+
+- 부모 엔티티가 자식 엔티티의 생명주기를 완전히 관리하냐? 이 질문에 YES라면 cascade = CascadeType.ALL
+- 그렇지 않다면 웬만하면 설정하지 않는 게 좋음
 
 #### 연관관계 편의 메소드
 - 양방향 연관관계에서 두 객체 간의 관계를 한쪽에서만 설정하는 것이 아니라 양쪽 모두에 자동으로 설정되도록 도와주는 메서드
@@ -282,3 +287,72 @@ assertThat(actual).isEqualTo(expected);        // 값 일치
 assertThat(list).hasSize(3);                   // 리스트 크기 검증
 assertThat(string).startsWith("prefix");       // 문자열 시작 검사
 assertThat(object).isInstanceOf(User.class);   // 객체 타입 확인
+```
+
+#### 생성자 메소드를 사용하는 이유
+
+일반 생성자를 사용할 경우
+- 클래스의 필드를 초기화하기 위해 사용됨
+- 오버로딩으로 다양한 생성자를 만들 수 있으나, 매개변수의 순서나 개수가 많아지면 가독성이 떨어짐
+- 실수로 매개변수의 순서를 바꿔도 컴파일 오류가 발생하지 않아 **버그 유발 가능성** 존재
+
+생성자 메소드 + Builder 패턴을 쓰면 좋은 점
+- 필드가 많을 경우, 어떤 값이 어떤 필드에 들어가는지 명확하게 확인 가능
+- 선택적인 필드만 설정하고 객체 생성 가능 (default 값 설정 용이)
+- 필요한 값만 세팅 후 build()를 호출하므로 불완전한 객체 생성을 방지
+- 메서드 체이닝 가능
+
+일반 생성자
+```java
+// 일반 생성자
+public class User {
+    private String name;
+    private int age;
+
+    public User(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+}
+
+// 사용
+User user = new User("Alice", 30);
+```
+Builder 패턴
+```java
+import lombok.Builder;
+import lombok.Getter;
+
+@Getter
+@Builder
+public class User {
+    private String name;
+    private int age;
+}
+
+// 사용
+User user = User.builder()
+                .name("Alice")
+                .age(30)
+                .build();
+```
+
+#### 도메인 모델 패턴 vs 트랜잭션 스크립트 패턴
+
+#### 1. 도메인 모델 패턴
+
+- 비즈니스 로직을 도메인 객체(Entity)에 위치시키는 패턴
+- 객체가 자신의 데이터를 스스로 처리 (행위 책임을 가짐)
+- 서비스 계층은 단순히 엔티티에 필요한 요청을 위임하는 역할
+- 객체지향 설계에 적합하고 유지보수성과 확장성이 좋음
+
+
+#### 2. 트랜잭션 스크립트 패턴
+
+- 비즈니스 로직을 대부분 서비스 계층에서 처리하는 패턴
+- 객체는 데이터만 가지고, 로직은 외부(Service)에 존재
+- 로직이 명확하게 한 곳에 있어 이해는 쉬우나, 재사용성은 떨어짐
+
+> 한 가지 패턴만 고집할 필요는 없기에 상황에 맞게 유연하게 선택하면 됨.
+> - 복잡하고 반복되는 비즈니스 로직 → 도메인 객체에 책임을 부여 (도메인 모델 패턴)
+> - 단순하고 변화 가능성이 낮은 기능 → 서비스에서 절차적으로 처리 (트랜잭션 스크립트)
