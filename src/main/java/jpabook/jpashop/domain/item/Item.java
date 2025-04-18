@@ -3,8 +3,11 @@ package jpabook.jpashop.domain.item;
 import jakarta.persistence.*;
 import jpabook.jpashop.domain.Category;
 import jpabook.jpashop.domain.exception.NotEnoughStockException;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +18,9 @@ import java.util.List;
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
 @DiscriminatorColumn(name = "dtype") // 상속 구조의 타입 구분용 컬럼을 설정 (책, 영화, 앨범을 구분하는 컬럼이 생김)
 @Getter @Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@SuperBuilder
 // Book, Album, Movie 같은 구체 클래스들을 만들어 사용하기 위해 추상 클래스로 선언
 // List<Item>으로 모든 상품들을 다룰 수도 있음. 다형성을 이용해 공통 로직을 처리
 public abstract class Item {
