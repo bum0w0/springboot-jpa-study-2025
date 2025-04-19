@@ -390,3 +390,85 @@ User user = User.builder()
 - 민감한 필드를 보호해야 할 때
 - 유효성 검증이 필요한 입력을 받을 때
 - REST API에서 요청/응답을 명확히 나누고 싶을 때
+
+### [중요] 변경 감지와 병합(merge)
+
+#### 준영속 엔티티
+- 영속성 컨텍스트가 더는 관리하지 않는 엔티티
+- 실습 코드에서는 수정을 시도하는 `Book` 객체가 준영속 엔티티 (이미 DB에 한번 저장되었기 때문에 식별자가 존재) getId() 를 시도하는 것 자체가 이미 DB에 저장되었다는 것을 의미
+- 준영속 엔티티는 JPA가 관리하지 않음 (반면에 영속 상태의 엔티티는 JPA가 **변경감지**를 자동으로 해줌)
+```java
+    // 준영속 엔티티 Book 예제 코드
+    @PostMapping("items/{itemId}/edit")
+    public String updateItem(@ModelAttribute("form") BookForm form) {
+        Book book = Book.builder()
+                .id(form.getId())
+                .name(form.getName())
+                .price(form.getPrice())
+                .stockQuantity(form.getStockQuantity())
+                .isbn(form.getIsbn())
+                .author(form.getAuthor())
+                .build();
+
+        itemService.saveItem(book);
+
+        return "redirect:/items";
+    }
+```
+#### 준영속 엔티티를 수정하는 2가지 방법
+1. 변경 감지 기능 사용
+- **핵심은 엔티티를 다시 조회한다는 것(준영속 상태인 엔티티를 영속 상태로 바꾸기 위함), 그리고 트랜잭션 안에서 조회(`@Transactional` 사용) 후 수정하여서 변경 감지가 이루어지도록 하는 것**
+- 위 과정을 거치면 트랜잭션 커밋 시점에 변경 감지(Dirty Checking)가 동작하면서 데이터베이스에 UPDATE SQL 실행
+```java
+@Transactional
+void update(Item itemParam) { // itemParam : 파라미터로 넘어온 준영속 상태의 엔티티
+    Item findItem = em.find(Item.class, itemParam.getId()); // 같은 엔티티를 조회
+    findItem.setPrice(itemParam.getPrice()); // 데이터를 수정
+}
+
+```
+2. 병합(merge) 사용
+- 병합은 준영속 상태의 엔티티를 영속 상태로 변경할 때 사용하는 기능
+```java
+@Transactional
+void update(Item itemParam) { // itemParam : 파라미터로 넘어온 준영속 상태의 엔티티
+    Item mergeItem = em.merge(item);    
+}
+```
+#### 병합 동작 방식
+1. merge()를 실행
+2. 파라미터로 넘어온 준영속 엔티티(param)의 식별자 값으로 1차 캐시에서 영속 엔티티(findItem) 조회
+   1. 만약 1차 캐시에 엔티티가 없으면 데이터 베이스에서 엔티티를 조회 후 1차 캐시에 저장
+3. 조회된 영속 엔티티(findItem)에 준영속 엔티티(param)의 모든 값(필드)을 채워넣음
+4. 값이 채워진 영속 상태의 객체를 반환 (merge()의 반환 값)
+
+위 과정을 코드로 나타내면 아래와 같음. JPA는 아래 코드를 merge() 하나로 대신 해주는 것과 같다.
+```java
+@Transactional
+public void updateItem(Long itemId, Book param) {
+    Item findItem = itemRepository.findOne(itemId);
+    findItem.setPrice(param.getPrice());
+    findItem.setName(param.getName());
+    findItem.setStockQuantity(param.getStockQuantity());
+    // return findItem
+}
+```
+#### merge() 사용 시 주의점
+1. **준영속 엔티티의 모든 필드를 복사하므로, 의도치 않은 데이터의 변경이 이루어질 수 있음 (부분 업데이트에 부적합)**
+   1. 준영속 객체(param)에 어떤 필드가 null이라면 → 영속 객체의 기존 값이 덮어씌워져서 기존 데이터가 사라질 수 있음
+2. **merge()의 반환값이 영속 엔티티라는 점을 기억 (파라미터로 넘긴 준영속 객체는 여전히 준영속 상태)**
+```java
+    // 파라미터로 넘어오는 item은 여전히 준영속 상태
+    // 그러나 merge()는 새로운 영속 객체를 반환하기 때문에 merge는 영속 상태 (이후 로직은 반드시 이 merge를 사용)
+    Item merge = em.merge(item)
+```
+**merge보다 변경감지를 사용 해야하는 이유**
+
+- `merge()`는 전체를 덮어써서 변경 지점을 추적하기 어려움
+- 변경감지는 바뀐 필드만 감지하고 반영 → 변경 내역 추적 가능
+- 불필요한 업데이트 쿼리 방지 → 성능 및 무결성 유지
+
+**업데이트는 묶어서, 명확하게**
+
+- 여러 필드 업데이트 시 단발성보다 묶어서 처리
+- 변경 지점을 명확히 → 추적 및 이력 관리 용이  
