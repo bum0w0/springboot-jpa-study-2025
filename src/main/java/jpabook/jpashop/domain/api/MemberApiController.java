@@ -29,6 +29,16 @@ public class MemberApiController {
         return new CreateMemberResponse(id);
     }
 
+    @PutMapping("/api/v2/members/{id}")
+    public UpdateMemberResponse updateMemberV2(
+            @PathVariable("id") Long id,
+            @RequestBody @Valid UpdateMemberRequest request) {
+
+        memberService.update(id, request.getName());
+        Member findMember = memberService.findOne(id);
+        return new UpdateMemberResponse(findMember.getId(), findMember.getName());
+    }
+
     // 요청, 응답, 수정 데이터를 담기 위한 DTO 클래스 (Lombok의 @Data로 getter/setter 자동 생성)
 
     @Data
@@ -43,6 +53,18 @@ public class MemberApiController {
         public CreateMemberResponse(Long id) {
             this.id = id;
         }
+    }
+
+    @Data
+    static class UpdateMemberRequest {
+        private String name;
+    }
+
+    @Data
+    @AllArgsConstructor
+    static class UpdateMemberResponse {
+        private Long id;
+        private String name;
     }
 
 }
