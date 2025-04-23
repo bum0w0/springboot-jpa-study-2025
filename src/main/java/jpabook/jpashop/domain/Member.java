@@ -1,5 +1,6 @@
 package jpabook.jpashop.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.*;
@@ -24,6 +25,7 @@ public class Member {
     @Embedded // 해당 엔티티에서 @Embeddable 클래스를 사용함
     private Address address;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "member") // mappedBy로 연관관계의 주인이 아님을 명시, 실제 외래 키(FK)는 반대쪽(Order.member)에서 관리된다
     private List<Order> orders = new ArrayList<>();
 
