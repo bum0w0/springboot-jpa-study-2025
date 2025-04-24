@@ -105,3 +105,24 @@ Member proxy = em.getReference(Member.class, 1L); // 프록시 객체
 #### 2. Lazy Loading과 DTO 사용
 - **Lazy Loading**된 엔티티까지 조회할 필요가 없다면, **DTO**(Data Transfer Object)를 사용하여 필요한 데이터만 선택적으로 전달해야 함.
 - **DTO**를 사용하면 연관된 엔티티 조회를 방지하고 성능을 최적화할 수 있음.
+
+---
+
+### JPA의 N + 1 문제
+- JPA에서 지연 로딩(LAZY)을 사용할 때 발생하는 성능 이슈
+- 예를 들어 `Order` 엔티티를 조회하고, 각 `Order`에서 `Member`와 `Delivery` 정보를 접근하면 발생
+#### 예시
+>회원 N + 배송 N = N개의 주문에 대해 각 회원/배송을 지연 로딩하면서 총 2N개의 추가 쿼리가 발생하는 문제
+
+```java
+// 주문이 많아질수록 member와 delivery 쿼리 수도 기하급수적으로 증가
+// 해당 예시에서는 쿼리가 총 1 + N + N 번 실행
+List<Order> orders = orderRepository.findAllByString(new OrderSearch());
+for (Order order : orders) {
+    order.getMember().getName();      // 회원 정보 조회 (N번 발생)
+    order.getDelivery().getAddress(); // 배송 정보 조회 (N번 발생)
+}
+```
+- Order의 결과가 2건이라면, 각 주문마다 다른 회원 또는 다른 배송 정보일 경우 최악의 경우 1 + 2 + 2번의 쿼리가 실행
+- 단, JPA의 지연 로딩은 영속성 컨텍스트를 통해 이미 조회된 엔티티는 재조회하지 않기 때문에,
+같은 회원 또는 배송 정보가 중복된다면 1 + 1 + 1로 줄어듬
