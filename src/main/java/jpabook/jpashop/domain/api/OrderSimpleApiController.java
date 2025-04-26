@@ -46,6 +46,17 @@ public class OrderSimpleApiController {
         return result;
     }
 
+    // 엔티티로 조회한 뒤 DTO로 변환 (DB에서는 엔티티 전체를 가져오고, 그걸 애플리케이션 레이어에서 필요한 값만 추리는 방식)
+    @GetMapping("/api/v3/simple-orders")
+    public List<SimpleOrderDto> ordersV3() {
+        List<Order> orders = orderRepository.findAllWithMemberDelivery();
+        List<SimpleOrderDto> result = orders.stream()
+                .map(SimpleOrderDto::new)
+                .toList();
+
+        return result;
+    }
+
     @Data
     static class SimpleOrderDto {
         private Long orderId;
