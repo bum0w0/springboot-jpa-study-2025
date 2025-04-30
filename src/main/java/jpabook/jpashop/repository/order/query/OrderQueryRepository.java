@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Repository
 @RequiredArgsConstructor
@@ -23,6 +25,31 @@ public class OrderQueryRepository {
             o.setOrderItems(orderItems);
         });
 
+        return result;
+    }
+
+    // findOrderItems와 동일한 데이터를 IN 절을 사용해 한 번의 쿼리로 조회 (기존의 N+1 문제 해결, 총 2번의 쿼리만 실행)
+    public List<OrderQueryDto> findAllByDto_optimization() {
+        List<OrderQueryDto> result = findOrders(); // 쿼리 1번 실행
+
+        List<Long> orderIds = result.stream()  // 주문 ID를 담는 리스트 생성 (아이디 2개 존재)
+                .map(OrderQueryDto::getOrderId)
+                .toList();
+
+        List<OrderItemQueryDto> orderItems = em.createQuery(
+                        "select new jpabook.jpashop.repository.order.query.OrderItemQueryDto(oi.order.id, oi.item.name, oi.orderPrice, oi.count)"
+                                +
+                                " from OrderItem oi" +
+                                " join oi.item i" +
+                                " where oi.order.id in :orderIds", OrderItemQueryDto.class) // 쿼리 1번 실행
+                .setParameter("orderIds", orderIds)
+                .getResultList();
+
+        Map<Long, List<OrderItemQueryDto>> orderItemMap = orderItems.stream()
+                .collect(Collectors.groupingBy(OrderItemQueryDto::getOrderId));
+
+        // 각 주문에 해당하는 주문 항목 리스트를 매핑
+        result.forEach(order -> order.setOrderItems(orderItemMap.get(order.getOrderId())));
         return result;
     }
 
