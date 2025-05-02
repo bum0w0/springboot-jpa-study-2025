@@ -195,7 +195,7 @@ Fetch Join 주의사항
 > - 그러나 네트워크 최적화 효과는 생각보다 미미한 경우가 많음
 > - API 스펙에 맞춘 조회가 되다 보니, 해당 레포지토리 메서드는 **재사용성이 떨어질 수 있음**
 ---
-### 엔티티를 DTO로 변환 vs DTO로 바로 조회
+### 엔티티를 DTO로 변환 with 페치조인 vs DTO로 바로 조회
 
 #### 1. 사실 필드 개수는 성능에 큰 영향이 없다
 - 조회 쿼리가 실행될 때, 필드 몇 개 더 가져와도 성능 차이는 거의 없음
@@ -271,3 +271,23 @@ Fetch Join 주의사항
 - 예: `@BatchSize(size = 50)` → 이 엔티티는 50개씩 묶어서 조회
 
 ---
+
+### 플랫(flat) 데이터 조회 최적화
+#### 플랫 조회는 여러 테이블을 조인한 결과를 한 번에 평평한(flat) 구조로 가져오는 방식  
+1. `Order`와 `OrderItem`을 조인한 데이터를 `OrderFlatDto`로 먼저 한 번에 조회하고,  
+2. Java Stream을 활용해 애플리케이션 단에서 `Order` 기준으로 그룹핑한 뒤 `OrderItem` 목록을 매핑
+```java
+@GetMapping("/api/v6/orders")
+    public List<OrderQueryDto> ordersV6() {
+        List<OrderFlatDto> flats = orderQueryRepository.findAllByDto_flat();
+
+        return flats.stream()
+                .collect(groupingBy(o -> new OrderQueryDto(o.getOrderId(), o.getName(), o.getOrderDate(), o.getOrderStatus(), o.getAddress()),
+                        mapping(o -> new OrderItemQueryDto(o.getOrderId(), o.getItemName(), o.getOrderPrice(), o.getCount()), toList())
+                )).entrySet().stream()
+                .map(e -> new OrderQueryDto(e.getKey().getOrderId(), e.getKey().getName(), e.getKey().getOrderDate(), e.getKey().getOrderStatus(), e.getKey().getAddress(), e.getValue()))
+                .collect(toList());
+    }
+```
+
+이 방식은 쿼리 호출을 한 번으로 줄여 성능에 유리하며, JPA의 N+1 문제를 회피할 수 있다는 장점이 있음 단, 조인으로 인해 중복된 row가 생길 수 있어 애플리케이션에서 그룹핑 후 가공이 필요함
